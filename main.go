@@ -1,23 +1,38 @@
 package main
 
-import "github.com/savsgio/atreugo/v11"
+import (
+	"context"
+	"log"
+	"net"
+
+	pb "github.com/yakarim/korindo/proto"
+	"google.golang.org/grpc"
+)
+
+const (
+	port = ":50051"
+)
+
+// server is used to implement helloworld.GreeterServer.
+type server struct {
+	pb.UnimplementedGreeterServer
+}
+
+// SayHello implements helloworld.GreeterServer
+func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
+	log.Printf("Received: %v", in.GetName())
+	return &pb.HelloReply{Message: "Hello " + in.GetName()}, nil
+}
 
 func main() {
-	config := atreugo.Config{
-		Addr: "0.0.0.0:3000",
+	lis, err := net.Listen("tcp", port)
+	if err != nil {
+		log.Fatalf("failed to listen: %v", err)
 	}
-	server := atreugo.New(config)
+	s := grpc.NewServer()
 
-	server.GET("/", func(ctx *atreugo.RequestCtx) error {
-		return ctx.TextResponse("Hello World")
-	})
-
-	v1 := server.NewGroupPath("/v1")
-	v1.GET("/", func(ctx *atreugo.RequestCtx) error {
-		return ctx.TextResponse("Hello V1 Group")
-	})
-
-	if err := server.ListenAndServe(); err != nil {
-		panic(err)
+	pb.RegisterGreeterServer(s, &server{})
+	if err := s.Serve(lis); err != nil {
+		log.Fatalf("failed to serve: %v", err)
 	}
 }
